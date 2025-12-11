@@ -90,10 +90,21 @@ export function ChatPage({ selectedScenario, onNewSession, loadedSession, onSess
   }, [sessionId, messages, scenarioId, scenarioName, phase, onSessionSaved, currentMode]);
 
   const handleSendMessage = async (content: string, attachedFiles?: AttachedFile[]) => {
-    // Build the full message content including attached files
-    let fullContent = content;
+    // Build display content (what user sees - just file names)
+    let displayContent = content;
+    // Build API content (what bot receives - full extracted text)
+    let apiContent = content;
     
     if (attachedFiles && attachedFiles.length > 0) {
+      // For display: just show file names
+      const fileLabels = attachedFiles.map(file => {
+        if (file.isImage) {
+          return `📎 ${file.filename}`;
+        }
+        return `📄 ${file.filename}`;
+      }).join('\n');
+      
+      // For API: include full extracted text for bot to read
       const fileContents = attachedFiles.map(file => {
         if (file.isImage) {
           return `[Прикреплено изображение: ${file.filename}]`;
@@ -102,16 +113,18 @@ export function ChatPage({ selectedScenario, onNewSession, loadedSession, onSess
       }).join('\n\n');
       
       if (content) {
-        fullContent = `${content}\n\n${fileContents}`;
+        displayContent = `${content}\n\n${fileLabels}`;
+        apiContent = `${content}\n\n${fileContents}`;
       } else {
-        fullContent = fileContents;
+        displayContent = fileLabels;
+        apiContent = fileContents;
       }
     }
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content: fullContent,
+      content: displayContent,
       timestamp: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, userMessage]);
@@ -123,7 +136,7 @@ export function ChatPage({ selectedScenario, onNewSession, loadedSession, onSess
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: fullContent,
+          message: apiContent,
           sessionId: sessionId || undefined,
           scenarioId: scenarioId || selectedScenario?.id || undefined,
         }),
